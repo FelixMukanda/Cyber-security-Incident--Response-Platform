@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prediction Results</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <h1>Cyber-Security Incidence Response Platform</h1>
+
+    <h2>Incidents Overview</h2>
+    <p>Incidents Detected: {{ predictions|length }}</p>
+    <p>Incidents Mitigated: {{ incidents_mitigated }}</p>
+
+    <div id="bar-chart">
+        <h2>Incident Response Bar Chart</h2>
+        
+    </div>
+    <div>
+        <main class="table">
+        <section class="table__header"><h2>Prediction Details</h2>
+        </section>
+        <section class="table__body">
+        <table>
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Actual Label</th>
+                <th>Predicted Label</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for prediction in predictions %}
+            <tr>
+                <td>{{ prediction[0] }}</td>
+                <td>{{ prediction[1] }}</td>
+                <td>{{ prediction[2] }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+        </table>
+       </section>
+    </div>
+    <div class="container">
+        <h1 class="mt-5">DDoS Prediction Results</h1>
+        <table class="table table-bordered mt-3">
+            <thead>
+                <tr>
+                    <th>Time</th>
+                    <th>Traffic Rate</th>
+                    <th>Prediction</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for prediction in predictions %}
+                <tr>
+                    <td>{{ prediction.timestamp }}</td>
+                    <td>{{ prediction.traffic_rate }}</td>
+                    <td>{{ "Attack Detected" if prediction.prediction == 1 else "Normal Traffic" }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    
+    <div>
+        <section>
+            <canvas id="predictionChart" width="400" height="200"></canvas>
+
+        <script>
+        // Data passed from the backend
+        var predictionData = {{ prediction_summary | tojson }};
+
+        // Split data into labels (actual values) and data for correct/wrong predictions
+        var labels = [];
+        var correctData = [];
+        var wrongData = [];
+
+        predictionData.forEach(function(item) {
+            labels.push('Actual: ' + item[0]);   // actual values
+            correctData.push(item[1]);           // correct predictions
+            wrongData.push(item[2]);             // wrong predictions
+        });
+
+        // Render the bar chart using Chart.js
+        var ctx = document.getElementById('predictionChart').getContext('2d');
+        var chart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        label: 'Correct Predictions',
+                        backgroundColor: 'rgba(75, 192, 192, 0.7)',
+                        data: correctData
+                    },
+                    {
+                        label: 'Wrong Predictions',
+                        backgroundColor: 'rgba(255, 99, 132, 0.7)',
+                        data: wrongData
+                    }
+                ]
+            },
+            options: {
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+        </script>
+
+        </section>
+    </div>
+    
+</body>
+</html>
