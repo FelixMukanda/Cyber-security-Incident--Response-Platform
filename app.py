@@ -2,8 +2,10 @@ from flask import Flask, render_template, jsonify, request
 import matplotlib.pyplot as plt
 import io
 import base64
+
+import mysql
 from model import load_model, predict_ddos, detect  # Assume model.py contains loading and prediction code
-from database import fetch_prediction_summary, save_predictions, fetch_predictions  # Use the correct name 'fetch_predictions'
+from database import fetch_incidents, fetch_prediction_summary, save_predictions, fetch_predictions  # Use the correct name 'fetch_predictions'
 
 
 app = Flask(__name__)
@@ -11,6 +13,7 @@ app = Flask(__name__)
 # Global counters for incident response tracking
 incidents_detected = 0
 incidents_mitigated = 0
+
 
 @app.route('/')
 def display_predictions():
@@ -27,13 +30,12 @@ def display_predictions():
     # Pass data to the template for rendering the bar chart
     return render_template('index.html', prediction_summary=prediction_summary)
 
-    # Save the chart to a buffer
-    img = io.BytesIO()
-    plt.savefig(img, format='png')
-    img.seek(0)
-    plot_url = base64.b64encode(img.getvalue()).decode()
-
-    return render_template('index.html', predictions=predictions, plot_url=plot_url)
+def fetch_incidents():
+    connection = mysql.connect(host='localhost', user='root', password='', db='cybersecurity_db')
+    with connection.cursor() as cursor:
+        cursor.execute("SELECT * FROM incidents")
+        data = cursor.fetchall()
+    return render_template('index.html', data=data)
 
 @app.route('/predict', methods=['POST'])
 def predict_and_respond():
@@ -62,5 +64,7 @@ def display_results():
     # Fetch predictions from the database
     predictions = fetch_predictions()  # Assume this fetches prediction records
     return render_template('index.html', predictions=predictions)
+
+
 if __name__ == '__main__':
     app.run(debug=True)

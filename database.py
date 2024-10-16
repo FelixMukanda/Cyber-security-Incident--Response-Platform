@@ -27,6 +27,12 @@ def save_predictions(actual, predicted):
     
     conn.commit()
     conn.close()
+def fetch_incidents(conn):
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM incidents")  # Modify the SQL query as needed
+    incidents = cursor.fetchall()
+    cursor.close()
+    return incidents
 
 def fetch_predictions():
     conn = connect_db()
@@ -77,3 +83,11 @@ def log_incident(incident_type, status):
     cursor.close()
     conn.close()
     print(f"Incident logged: {incident_type}, Status: {status}")
+
+def fetch_incidents(conn):
+    """ Fetch incidents from the database """
+    cursor = conn.cursor()
+    cursor.execute("SELECT type, status, timestamp FROM incidents")
+    return cursor.fetchall()  # Return all incidents as a list of tuples
+
+
