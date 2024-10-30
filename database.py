@@ -27,7 +27,9 @@ def save_predictions(actual, predicted):
     
     conn.commit()
     conn.close()
-def fetch_incidents(conn):
+    
+def fetch_incidents():
+    conn = connect_db()
     cursor = conn.cursor()
     cursor.execute("SELECT * FROM incidents")  # Modify the SQL query as needed
     incidents = cursor.fetchall()

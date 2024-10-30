@@ -1,48 +1,69 @@
 import joblib
-import numpy as np
+import pandas as pd
 
-# Load the trained Random Forest model
-def load_model():
-    try:
-        model = joblib.load('random_forest_model.sav')  # Load the saved model
-        return model
-    except FileNotFoundError:
-        raise Exception("Model file not found. Make sure the model is trained and saved as 'random_forest_model.sav'.")
+# Define the expected feature names (use actual names used in training the model)
+FEATURE_NAMES = ["dt", "switch", "pktcount", "bytecount", "dur", "dur_nsec", "tot_dur",
+                 "flows", "packetins", "pktperflow", "byteperflow", "pktrate", 
+                 "Pairflow", "tx_bytes", "rx_bytes", "tx_kbps", "rx_kbps", "tot_kbps"]
 
-# Function to preprocess input data (if necessary)
-# Modify this function based on the structure of your input data (e.g., network traffic)
+# Load the trained Random Forest model once
+try:
+    model = joblib.load('random_forest_model.sav')
+    model_features = model.feature_names_in_  # Retrieve feature names from the model
+except FileNotFoundError:
+    raise Exception("Model file not found. Ensure 'random_forest_model.sav' exists in the directory.")
+
+# Global log to capture print outputs
+model_logs = []
+
+def log_message(message):
+    model_logs.append(message)
+    print(message)  # Optional: keep this if you want console output as well
+
+# Preprocess input data based on model requirements
 def preprocess_data(data):
-    # Assuming data is a dictionary of features. For example:
-    # data = {"feature1": value1, "feature2": value2, ...}
-    
-    # Convert dictionary to a numpy array (you can adjust the structure based on your actual data)
-    features = np.array(list(data.values())).reshape(1, -1)
-    
-    return features
+    features = [data.get(feature, 0) for feature in model_features]
+    features_df = pd.DataFrame([features], columns=model_features)
+    log_message("Data preprocessing completed.")
+    return features_df
 
-# Function to predict DDoS attack using the model
-def predict_ddos(data):
-    model = load_model()  # Load the trained model
-    processed_data = preprocess_data(data)  # Preprocess the input data
-    prediction = model.predict(processed_data)  # Make prediction (e.g., 0 for normal, 1 for attack)
-    
-    # You may want to round predictions or apply thresholding for classification
-    # In case of a regression model, you can use a threshold like this:
-    # return 1 if prediction >= threshold else 0
-    
-    return int(prediction[0])  # Assuming binary classification (e.g., 0 = normal, 1 = attack)
+# Predict DDoS attack using the model
+def predict_ddos(traffic_data):
+    processed_data = preprocess_data(traffic_data)  # Preprocess input data
+    prediction = model.predict(processed_data)
+    prediction_result = int(prediction[0])  # Binary output: 0 = normal, 1 = attack
+    log_message(f"Prediction: {'DDoS Attack' if prediction_result == 1 else 'Normal Traffic'}")
+    return prediction_result
 
+def calculate_traffic_rate(pktcount, duration):
+    if duration <= 0:
+        raise ValueError("Duration must be greater than zero.")
+    traffic_rate = pktcount / duration  # packets per second
+    log_message(f"Calculated traffic rate: {traffic_rate} packets/second")
+    return traffic_rate
+
+# Threshold-based detection function 
 def detect(traffic_rate):
-    """
-    Detects whether the incoming traffic rate suggests a DDoS attack.
-    
-    :param traffic_rate: Number of requests per second (traffic rate)
-    :return: True if DDoS is detected, False otherwise
-    """
-    threshold = 500  # Set a threshold for DDoS detection
+    threshold = 500  # Set a threshold for detection
     if traffic_rate > threshold:
-        print(f"DDoS attack detected! Traffic rate: {traffic_rate}")
+        log_message(f"DDoS attack detected! Traffic rate: {traffic_rate}")
         return True
     else:
-        print(f"No DDoS detected. Traffic rate: {traffic_rate}")
+        log_message(f"No DDoS detected. Traffic rate: {traffic_rate}")
         return False
+
+# Testing the model independently
+if __name__ == "__main__":
+    # Example traffic data dictionary to simulate the input from `ddos_simulation.py`
+    sample_data = {"pktcount": 2000, "bytecount": 150, "dur": 2}  # Example values
+    
+    log_message("Calculating traffic rate...")
+    traffic_rate = calculate_traffic_rate(sample_data["pktcount"], sample_data["dur"])
+
+    log_message("Preprocessing data...")
+    processed_data = preprocess_data(sample_data)
+    
+
+    log_message("Loading model and predicting...")
+    prediction = predict_ddos(sample_data)
+    log_message(f"Prediction: {'DDoS Attack' if prediction == 1 else 'Normal Traffic'}")

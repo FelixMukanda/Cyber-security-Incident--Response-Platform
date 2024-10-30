@@ -1,12 +1,8 @@
 from flask import Flask, render_template, jsonify, request
-import matplotlib.pyplot as plt
-import io
-import base64
-
-import mysql
-from model import load_model, predict_ddos, detect  # Assume model.py contains loading and prediction code
-from database import fetch_incidents, fetch_prediction_summary, save_predictions, fetch_predictions  # Use the correct name 'fetch_predictions'
-
+import mysql.connector
+from model import predict_ddos, detect, model_logs
+from database import fetch_predictions, fetch_prediction_summary, save_predictions
+from ddos_simulation import simulation_logs  # Import simulation logs from ddos_simulation.py
 
 app = Flask(__name__)
 
@@ -14,49 +10,54 @@ app = Flask(__name__)
 incidents_detected = 0
 incidents_mitigated = 0
 
-
-@app.route('/')
-def display_predictions():
-    # Get predictions from the database
-    predictions = fetch_predictions()
-
-    # Track incidents
-    global incidents_detected, incidents_mitigated
-    incidents_detected = sum([1 for pred in predictions if pred[2] == 1])  # Assuming 1 means attack detected
-    incidents_mitigated = incidents_detected  # For simplicity, assume all incidents were mitigated
-
-    prediction_summary = fetch_prediction_summary()  # Get summary data
-
-    # Pass data to the template for rendering the bar chart
-    return render_template('index.html', prediction_summary=prediction_summary)
-
+# Function to fetch incidents
 def fetch_incidents():
-    connection = mysql.connect(host='localhost', user='root', password='', db='cybersecurity_db')
+    connection = mysql.connector.connect(host='localhost', user='root', password='', database='cybersecurity_db')
     with connection.cursor() as cursor:
         cursor.execute("SELECT * FROM incidents")
-        data = cursor.fetchall()
-    return render_template('index.html', data=data)
+        incidents = cursor.fetchall()
+    connection.close()
+    return incidents
+
+@app.route('/')
+def index():
+    predictions = fetch_predictions()
+    incidents = fetch_incidents()
+    incidents_mitigated = sum(1 for pred in predictions if pred[2] == 1)
+    prediction_summary = fetch_prediction_summary()
+
+    return render_template(
+        'index.html',
+        predictions=predictions,
+        incidents=incidents,
+        incidents_mitigated=incidents_mitigated,
+        prediction_summary=prediction_summary,
+        simulation_logs=simulation_logs,  # Pass logs to HTML
+        model_logs=model_logs  # Pass logs to HTML
+    )
+
 
 @app.route('/predict', methods=['POST'])
 def predict_and_respond():
-    # Get network traffic data (in practice, this would be from live traffic)
+    # Get network traffic data
     data = request.get_json()
 
-    # Predict using the model
+    # Initial detection based on a threshold
+    if detect(data.get("traffic_rate", 0)):
+        apply_rate_limiting()  # Mitigation action
+        return jsonify({"message": "DDoS attack detected by threshold and mitigated."}), 200
+
+    # Further prediction using the trained model
     prediction = predict_ddos(data)
+    save_predictions(data, prediction)  # Save to database
 
-    # Save the prediction to the database
-    save_predictions(data, prediction)
-
-    # Check if attack is predicted (1 means attack detected)
     if prediction == 1:
-        apply_rate_limiting()  # Apply mitigation action
-        return jsonify({"message": "DDoS attack detected and mitigated."}), 200
+        apply_rate_limiting()  # Apply further mitigation if needed
+        return jsonify({"message": "DDoS attack detected by model and mitigated."}), 200
 
     return jsonify({"message": "Traffic normal."}), 200
 
 def apply_rate_limiting():
-    # Example function to apply rate limiting
     print("Rate limiting applied to suspicious IP.")
 
 @app.route('/results', methods=['GET'])
@@ -64,7 +65,6 @@ def display_results():
     # Fetch predictions from the database
     predictions = fetch_predictions()  # Assume this fetches prediction records
     return render_template('index.html', predictions=predictions)
-
 
 if __name__ == '__main__':
     app.run(debug=True)
