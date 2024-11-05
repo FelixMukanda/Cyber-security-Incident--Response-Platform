@@ -19,6 +19,15 @@ def fetch_incidents():
     connection.close()
     return incidents
 
+@app.route('/fetch_logs', methods=['GET'])
+def fetch_logs():
+    incidents = fetch_incidents()  # This retrieves incidents from the database
+    log_entries = [
+        {"timestamp": incident[0], "status": incident[1], "details": incident[2]} 
+        for incident in incidents
+    ]
+    return jsonify(log_entries)
+
 @app.route('/')
 def index():
     predictions = fetch_predictions()
