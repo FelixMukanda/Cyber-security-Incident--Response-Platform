@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Incident Logs - Cybersecurity Dashboard</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 0;
+        }
+        header {
+            background-color: #333;
+            color: #fff;
+            padding: 1rem;
+            text-align: center;
+        }
+        .container {
+            padding: 2rem;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 1rem;
+        }
+        th, td {
+            padding: 10px;
+            border: 1px solid #ddd;
+            text-align: left;
+        }
+        th {
+            background-color: #4caf50;
+            color: #fff;
+        }
+        tr:nth-child(odd) {
+            background-color: #f3f3f3;
+        }
+        .filter-input {
+            margin-bottom: 1rem;
+            padding: 0.5rem;
+            width: 100%;
+            max-width: 400px;
+        }
+        .export-button {
+            background-color: #4caf50;
+            color: #fff;
+            border: none;
+            padding: 0.5rem 1rem;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+        .export-button:hover {
+            background-color: #45a049;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0, 0, 0, 0.4);
+            padding-top: 60px;
+        }
+        .modal-content {
+            background-color: #fff;
+            margin: 5% auto;
+            padding: 20px;
+            border: 1px solid #888;
+            width: 80%;
+            border-radius: 8px;
+        }
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+        }
+        .close:hover,
+        .close:focus {
+            color: #000;
+            text-decoration: none;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>Incident Logs Viewer</h1>
+</header>
+
+<div class="container">
+    <input type="text" id="filter-input" class="filter-input" placeholder="Search logs by timestamp or details...">
+    <button class="export-button" onclick="exportToCSV()">Export to CSV</button>
+
+    <table id="logs-table">
+        <thead>
+            <tr>
+                <th>Timestamp</th>
+                <th>Details</th>
+                <th>Status</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody id="logs-body">
+            <!-- Rows will be dynamically filled -->
+        </tbody>
+    </table>
+</div>
+
+<div id="log-modal" class="modal">
+    <div class="modal-content">
+        <span class="close" onclick="closeModal()">&times;</span>
+        <h2>Log Details</h2>
+        <p id="modal-details"></p>
+    </div>
+</div>
+
+<script>
+    function fetchLogs() {
+        fetch('/logs')
+            .then(response => response.json())
+            .then(data => {
+                const logsBody = document.getElementById('logs-body');
+                logsBody.innerHTML = '';
+                data.forEach(log => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${log.timestamp}</td>
+                        <td>${log.details}</td>
+                        <td>${log.status}</td>
+                        <td><button onclick="showDetails('${log.details}')">View</button></td>
+                    `;
+                    logsBody.appendChild(row);
+                });
+            })
+            .catch(error => console.error('Error fetching logs:', error));
+    }
+
+    function exportToCSV() {
+        fetch('/logs')
+            .then(response => response.json())
+            .then(data => {
+                let csvContent = 'data:text/csv;charset=utf-8,';
+                csvContent += 'Timestamp,Details,Status\n';
+                data.forEach(log => {
+                    csvContent += `${log.timestamp},${log.details},${log.status}\n`;
+                });
+                const encodedUri = encodeURI(csvContent);
+                const link = document.createElement('a');
+                link.setAttribute('href', encodedUri);
+                link.setAttribute('download', 'incident_logs.csv');
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            });
+    }
+
+    function showDetails(details) {
+        document.getElementById('modal-details').innerText = details;
+        document.getElementById('log-modal').style.display = 'block';
+    }
+
+    function closeModal() {
+        document.getElementById('log-modal').style.display = 'none';
+    }
+
+    document.getElementById('filter-input').addEventListener('input', function() {
+        const filterValue = this.value.toLowerCase();
+        const rows = document.querySelectorAll('#logs-body tr');
+        rows.forEach(row => {
+            const cells = row.getElementsByTagName('td');
+            const timestamp = cells[0].textContent.toLowerCase();
+            const details = cells[1].textContent.toLowerCase();
+            if (timestamp.includes(filterValue) || details.includes(filterValue)) {
+                row.style.display = '';
+            } else {
+                row.style.display = 'none';
+            }
+        });
+    });
+
+    window.onload = fetchLogs;
+</script>
+
+</body>
+</html>

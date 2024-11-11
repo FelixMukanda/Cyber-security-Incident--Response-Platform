@@ -2,13 +2,31 @@ from flask import Flask, render_template, jsonify, request
 import mysql.connector
 from model import predict_ddos, detect, model_logs
 from database import fetch_predictions, fetch_prediction_summary, save_predictions
-from ddos_simulation import simulation_logs  # Import simulation logs from ddos_simulation.py
+from ddos_simulation import simulation_logs
+from flask_socketio import SocketIO, emit
+import smtplib
+from email.mime.text import MIMEText
 
 app = Flask(__name__)
+socketio = SocketIO(app)
 
 # Global counters for incident response tracking
 incidents_detected = 0
 incidents_mitigated = 0
+
+# Function to send email alerts
+def send_email_alert(subject, body):
+    sender = "your_email@gmail.com"
+    receiver = "recipient_email@gmail.com"
+    msg = MIMEText(body)
+    msg['Subject'] = subject
+    msg['From'] = sender
+    msg['To'] = receiver
+
+    with smtplib.SMTP('smtp.gmail.com', 587) as server:
+        server.starttls()
+        server.login(sender, 'your_password')
+        server.sendmail(sender, receiver, msg.as_string())
 
 # Function to fetch incidents
 def fetch_incidents():
@@ -19,17 +37,18 @@ def fetch_incidents():
     connection.close()
     return incidents
 
-@app.route('/fetch_logs', methods=['GET'])
+@app.route('/logs', methods=['GET'])
 def fetch_logs():
-    incidents = fetch_incidents()  # This retrieves incidents from the database
-    log_entries = [
-        {"timestamp": incident[0], "status": incident[1], "details": incident[2]} 
-        for incident in incidents
-    ]
-    return jsonify(log_entries)
+    connection = mysql.connector.connect(host='localhost', user='root', password='', database='cybersecurity_db')
+    with connection.cursor() as cursor:
+        cursor.execute("SELECT * FROM incidents")
+        logs = cursor.fetchall()
+    connection.close()
+    
+    return jsonify(logs)
 
 @app.route('/')
-def index():
+def dashboard():
     predictions = fetch_predictions()
     incidents = fetch_incidents()
     incidents_mitigated = sum(1 for pred in predictions if pred[2] == 1)
@@ -41,39 +60,23 @@ def index():
         incidents=incidents,
         incidents_mitigated=incidents_mitigated,
         prediction_summary=prediction_summary,
-        simulation_logs=simulation_logs,  # Pass logs to HTML
-        model_logs=model_logs  # Pass logs to HTML
+        simulation_logs=simulation_logs,
+        model_logs=model_logs
     )
 
+@socketio.on('connect')
+def handle_connect():
+    print("Client connected")
 
-@app.route('/predict', methods=['POST'])
-def predict_and_respond():
-    # Get network traffic data
-    data = request.get_json()
+# Function to emit data in real-time
+def emit_data(data):
+    socketio.emit('new_data', data)
 
-    # Initial detection based on a threshold
-    if detect(data.get("traffic_rate", 0)):
-        apply_rate_limiting()  # Mitigation action
-        return jsonify({"message": "DDoS attack detected by threshold and mitigated."}), 200
-
-    # Further prediction using the trained model
-    prediction = predict_ddos(data)
-    save_predictions(data, prediction)  # Save to database
-
-    if prediction == 1:
-        apply_rate_limiting()  # Apply further mitigation if needed
-        return jsonify({"message": "DDoS attack detected by model and mitigated."}), 200
-
-    return jsonify({"message": "Traffic normal."}), 200
-
-def apply_rate_limiting():
-    print("Rate limiting applied to suspicious IP.")
-
-@app.route('/results', methods=['GET'])
-def display_results():
-    # Fetch predictions from the database
-    predictions = fetch_predictions()  # Assume this fetches prediction records
-    return render_template('index.html', predictions=predictions)
+def monitor_traffic(request_count):
+    if request_count > 1000:
+        alert_message = f"High traffic detected: {request_count} requests"
+        send_email_alert("DDoS Alert", alert_message)
+        emit_data({"is_alert": True, "message": alert_message})
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    socketio.run(app, debug=True)
