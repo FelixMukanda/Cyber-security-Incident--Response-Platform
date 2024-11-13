@@ -7,7 +7,7 @@ from flask_socketio import SocketIO, emit
 import smtplib
 from email.mime.text import MIMEText
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder='static')
 socketio = SocketIO(app)
 
 # Global counters for incident response tracking
@@ -36,16 +36,23 @@ def fetch_incidents():
         incidents = cursor.fetchall()
     connection.close()
     return incidents
-
-@app.route('/logs', methods=['GET'])
-def fetch_logs():
-    connection = mysql.connector.connect(host='localhost', user='root', password='', database='cybersecurity_db')
-    with connection.cursor() as cursor:
-        cursor.execute("SELECT * FROM incidents")
-        logs = cursor.fetchall()
+def fetch_prediction_data():
+    connection = mysql.connector.connect(
+        host='localhost',
+        user='root',
+        password='',
+        database='cybersecurity_db'
+    )
+    cursor = connection.cursor()
+    cursor.execute("SELECT id, actual_label, predicted_label FROM predictions")
+    data = cursor.fetchall()
     connection.close()
-    
-    return jsonify(logs)
+    return data
+
+@app.route('/incident-logs')
+def incident_logs():
+    # Fetch or prepare data if needed
+    return render_template('incident-logs.html')
 
 @app.route('/')
 def dashboard():
@@ -53,6 +60,8 @@ def dashboard():
     incidents = fetch_incidents()
     incidents_mitigated = sum(1 for pred in predictions if pred[2] == 1)
     prediction_summary = fetch_prediction_summary()
+    prediction_data = fetch_prediction_data()
+    
 
     return render_template(
         'index.html',
@@ -61,7 +70,8 @@ def dashboard():
         incidents_mitigated=incidents_mitigated,
         prediction_summary=prediction_summary,
         simulation_logs=simulation_logs,
-        model_logs=model_logs
+        model_logs=model_logs,
+        prediction_data=prediction_data
     )
 
 @socketio.on('connect')

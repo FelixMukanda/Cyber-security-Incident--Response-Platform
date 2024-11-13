@@ -4,7 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin Dashboard - Cybersecurity DDoS Platform</title>
-    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="/static/styles.css">
+    <script src="https://cdn.socket.io/4.5.0/socket.io.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -168,71 +170,183 @@
                         <tbody id="log-entries"></tbody>
                     </table>
                 </div>
-                <button id="refresh-button" onclick="fetchLogs()">Refresh Logs</button>
+                <button id="refresh-button" onclick="fetch_logs()">Refresh Logs</button>
             </div>
         </div>
 
         <h2 id="logs">Incident Logs</h2>
         <div class="stat-box">
             <strong>View Full Incident Log:</strong>
-            <a href="/incident-logs.html" target="_blank">Open Logs</a>
+            <a href="/incident-logs" target="_blank">Open Logs</a>
         </div>
 
         <h2 id="mitigation">Mitigation Status</h2>
         <div class="stat-box">
-            <strong>Active Measures:</strong>
-            <p>IP Blacklisting, Rate Limiting</p>
+            <!-- Display predictions -->
+<h2>Predictions Overview</h2>
+<ul>
+    {% for prediction in predictions %}
+        <li>ID: {{ prediction[0] }}, Actual: {{ prediction[1] }}, Predicted: {{ prediction[2] }}</li>
+    {% endfor %}
+</ul>
+
+<!-- Display incidents -->
+<h2>Incidents</h2>
+<table>
+    <thead>
+        <tr>
+            <th>Incident ID</th>
+            <th>Type</th>
+            <th>Status</th>
+            <th>Timestamp</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for incident in incidents %}
+            <tr>
+                <td>{{ incident[0] }}</td>
+                <td>{{ incident[1] }}</td>
+                <td>{{ incident[2] }}</td>
+                <td>{{ incident[3] }}</td>
+            </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<!-- Real-time alert box -->
+<div id="alert-box" style="display: none; background-color: red; color: white; padding: 10px;">
+    Alert: Potential DDoS detected!
+</div>
+
         </div>
     </div>
 </div>
 <script>
-   async function fetchLogs() {
+    async function fetchLogs() {
+        const logEntries = document.getElementById('log-entries');
+        logEntries.innerHTML = '<tr><td colspan="3">Loading...</td></tr>';
         try {
-            const response = await fetch('/fetch_logs'); // Update path here
+            const response = await fetch('/fetch_logs'); // Update path as needed
             const logs = await response.json();
-
-            const logEntries = document.getElementById('log-entries');
+ 
             logEntries.innerHTML = '';  // Clear existing logs
-
+ 
             logs.forEach(log => {
                 const row = document.createElement('tr');
-
+ 
                 const timestampCell = document.createElement('td');
                 timestampCell.textContent = log.timestamp;
                 row.appendChild(timestampCell);
-
+ 
                 const statusCell = document.createElement('td');
                 statusCell.textContent = log.status;
                 row.appendChild(statusCell);
-
+ 
                 const detailsCell = document.createElement('td');
                 detailsCell.textContent = log.details;
                 row.appendChild(detailsCell);
-
+ 
                 logEntries.appendChild(row);
             });
         } catch (error) {
             console.error("Error fetching logs:", error);
+            logEntries.innerHTML = '<tr><td colspan="3">Error loading logs. Please try again later.</td></tr>';
         }
     }
-
+ 
     // Initial fetch when page loads
     fetchLogs();
-
-  // JavaScript code to handle real-time updates on the client side
-const socket = io.connect('http://localhost:5000');
-
-socket.on('new_data', (data) => {
-    console.log('New data received:', data);
-    // Update the dashboard with the new data
-});
-socket.on('new_data', (data) => {
+ 
+    // Real-time data handling using Socket.IO
+    const socket = io.connect('http://localhost:5000');
+ 
+    socket.on('new_data', (data) => {
+        console.log('New data received:', data);
         if (data.is_alert) {
             document.getElementById('alert-box').style.display = 'block';
+            document.getElementById('alert-box').innerText = data.message;
         }
-        // Update charts or logs with new data
+ 
+        // Optionally update logs or other elements dynamically
+        const logEntries = document.getElementById('log-entries');
+        const row = document.createElement('tr');
+ 
+        const timestampCell = document.createElement('td');
+        timestampCell.textContent = data.timestamp; // Adjust based on data structure
+        row.appendChild(timestampCell);
+ 
+        const statusCell = document.createElement('td');
+        statusCell.textContent = data.status; // Adjust based on data structure
+        row.appendChild(statusCell);
+ 
+        const detailsCell = document.createElement('td');
+        detailsCell.textContent = data.details; // Adjust based on data structure
+        row.appendChild(detailsCell);
+ 
+        logEntries.insertAdjacentElement('afterbegin', row); // Add new log at the top
     });
+ </script>
+ 
+ <canvas id="predictionChart" width="800" height="400"></canvas>
 
+<script>
+    // Data passed from Flask
+    const predictionData = JSON.parse('{{ prediction_data | tojson }}');
+
+    // Extract IDs, Actual, and Predicted values from the data
+    const ids = predictionData.map(item => item[0]);
+    const actualValues = predictionData.map(item => item[1]);
+    const predictedValues = predictionData.map(item => item[2]);
+
+    // Create the chart using Chart.js
+    const ctx = document.getElementById('predictionChart').getContext('2d');
+    const chart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: ids,
+            datasets: [
+                {
+                    label: 'Actual',
+                    data: actualValues,
+                    borderColor: 'rgba(75, 192, 192, 1)',
+                    backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                    borderWidth: 2,
+                    fill: false,
+                },
+                {
+                    label: 'Predicted',
+                    data: predictedValues,
+                    borderColor: 'rgba(255, 99, 132, 1)',
+                    backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                    borderWidth: 2,
+                    fill: false,
+                }
+            ]
+        },
+        options: {
+            scales: {
+                x: {
+                    title: {
+                        display: true,
+                        text: 'ID'
+                    }
+                },
+                y: {
+                    title: {
+                        display: true,
+                        text: 'Value'
+                    },
+                    min: 0,
+                    max: 1
+                }
+            }
+        }
+    });
+</script>
+
+
+<script>
+    console.log("Prediction Data:", predictionData);
 </script>
 
 </body>
