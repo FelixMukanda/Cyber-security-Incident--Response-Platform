@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DDoS Traffic Simulation</title>
+    <script src="https://cdn.jsdelivr.net/npm/socket.io-client@4.0.0/dist/socket.io.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f0f0f0;
+            color: #333;
+        }
+
+        .navbar {
+            background-color: #002b5b;
+        }
+
+        .navbar-brand, .nav-link {
+            color: white !important;
+        }
+
+        #container {
+            display: flex;
+            flex-direction: column; /* Stack items vertically */
+            gap: 20px; /* Add spacing between child elements */
+            width: 80%;
+            margin: 20px auto;
+        }
+
+        .flex-section {
+            display: flex;
+            flex-wrap: wrap; /* Allow wrapping for responsiveness */
+            justify-content: space-between; /* Spread child elements evenly */
+            gap: 20px; /* Add spacing between child elements */
+        }
+
+        .flex-item {
+            flex: 1 1 calc(50% - 20px); /* 50% width minus the gap */
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+        }
+
+        .traffic-update {
+            padding: 10px 0;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .traffic-update p {
+            margin: 0;
+            font-size: 18px;
+        }
+
+        .normal {
+            color: green;
+        }
+
+        .ddos {
+            color: red;
+        }
+
+        .dark-mode {
+            background-color: #121212;
+            color: #ffffff;
+        }
+
+        .dark-mode .navbar {
+            background-color: #1e1e1e;
+        }
+
+        .dark-mode .flex-item {
+            background-color: #1e1e1e;
+            color: #ffffff;
+        }
+
+        @media (max-width: 768px) {
+            #container {
+                width: 95%;
+            }
+
+            .flex-item {
+                flex: 1 1 100%; /* Full width on smaller screens */
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation Bar -->
+    <nav class="navbar navbar-expand-lg navbar-dark">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="#">Cybersecurity Dashboard</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav">
+                    <li class="nav-item"><a class="nav-link" href="#overview">Overview</a></li>
+                    <li class="nav-item"><a class="nav-link" href="#live-traffic">Live Traffic</a></li>
+                    <li class="nav-item"><a class="nav-link" href="#logs">Logs</a></li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div id="container">
+        <!-- Flex Section -->
+        <div class="flex-section">
+            <div class="flex-item">
+                <h2>Overview</h2>
+                <p>Total Attacks Detected: <strong id="total-attacks">125</strong></p>
+                <p>Active Mitigations: <strong id="active-mitigations">3</strong></p>
+            </div>
+            <div class="flex-item">
+                <h2>Live Traffic Chart</h2>
+                <canvas id="liveTrafficChart" width="800" height="400"></canvas>
+            </div>
+        </div>
+
+        <!-- Logs Section -->
+        <div class="flex-section">
+            <div class="flex-item">
+                <h3>System Logs</h3>
+                <div id="log-container" style="max-height: 300px; overflow-y: auto;"></div>
+            </div>
+            <div class="flex-item">
+                <h3>Traffic Logs</h3>
+                <div id="traffic-log" style="max-height: 300px; overflow-y: auto;"></div>
+            </div>
+        </div>
+
+        <!-- Blocked IPs Section -->
+        <div class="flex-section">
+            <div class="flex-item">
+                <h3>Blocked IPs</h3>
+                <div id="blocked-ips" style="max-height: 300px; overflow-y: auto;">
+                    <!-- Blocked IPs will be listed here -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Incidents Table Section -->
+        <div class="flex-item">
+            <h3>Incidents</h3>
+            <div id="incidents-table">
+                <!-- Table will be dynamically populated here -->
+            </div>
+        </div>
+    </div>
+   
+
+    <script>
+        const socket = io.connect('http://' + document.domain + ':' + location.port);
+
+        let totalAttacks = 0;
+        let activeMitigations = new Set(); // Set to store blocked IPs
+
+        // Update the Overview section dynamically
+        function updateOverview() {
+            document.getElementById('total-attacks').textContent = totalAttacks;
+            document.getElementById('active-mitigations').textContent = activeMitigations.size; // Update with the number of unique blocked IPs
+        }
+
+        const ctx = document.getElementById('liveTrafficChart').getContext('2d');
+        const liveTrafficChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: [], // Timestamps
+                datasets: [{
+                    label: 'Requests per Second',
+                    data: [], // Traffic rates
+                    borderColor: 'rgba(75, 192, 192, 1)',
+                    backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                    borderWidth: 2,
+                    fill: true
+                }]
+            },
+            options: {
+                animation: { duration: 500 },
+                responsive: true,
+                scales: {
+                    x: { title: { display: true, text: 'Time' }, ticks: { maxTicksLimit: 10 } },
+                    y: { title: { display: true, text: 'Requests/Second' }, min: 0 }
+                }
+            }
+        });
+
+        // Listen for traffic updates
+        socket.on('traffic_update', (data) => {
+            const trafficLog = document.getElementById('traffic-log');
+            const newTraffic = document.createElement('div');
+            newTraffic.classList.add('traffic-update');
+            newTraffic.innerHTML = `
+                <p><strong>Time:</strong> ${data.timestamp}</p>
+                <p><strong>Traffic Type:</strong> <span class="${data.traffic_type === 'DDoS' ? 'ddos' : 'normal'}">${data.traffic_type}</span></p>
+                <p><strong>Requests Sent:</strong> ${data.traffic_rate}</p>
+            `;
+            trafficLog.prepend(newTraffic);
+            if (trafficLog.children.length > 50) trafficLog.removeChild(trafficLog.lastChild);
+
+            // Increment total attacks if the traffic type is DDoS
+            if (data.traffic_type === 'DDoS') {
+                totalAttacks++;
+            }
+
+            // Update the live traffic chart
+            liveTrafficChart.data.labels.push(data.timestamp);
+            liveTrafficChart.data.datasets[0].data.push(data.traffic_rate);
+            if (liveTrafficChart.data.labels.length > 10) {
+                liveTrafficChart.data.labels.shift();
+                liveTrafficChart.data.datasets[0].data.shift();
+            }
+            liveTrafficChart.update();
+
+            // Update the Overview section dynamically
+            updateOverview();
+        });
+
+        // Listen for system logs updates
+        socket.on('log_update', (data) => {
+            const logContainer = document.getElementById('log-container');
+            const newLog = document.createElement('p');
+            newLog.textContent = data.message;
+            logContainer.appendChild(newLog);
+            if (logContainer.children.length > 50) logContainer.removeChild(logContainer.firstChild);
+            logContainer.scrollTop = logContainer.scrollHeight;
+
+            // Check if the log is about a blocked IP (example log: "Blocked IP: 192.168.0.1")
+            if (data.message.includes("Blocked IP:")) {
+                const blockedIP = data.message.split("Blocked IP:")[1].trim();
+                activeMitigations.add(blockedIP); // Add the blocked IP to the set
+                displayBlockedIPs(); // Update the blocked IPs list
+                updateOverview(); // Update the active mitigations count
+            }
+        });
+
+        // Function to display blocked IPs
+        function displayBlockedIPs() {
+            const blockedIPsContainer = document.getElementById('blocked-ips');
+            blockedIPsContainer.innerHTML = ''; // Clear the list before re-adding
+            activeMitigations.forEach((ip) => {
+                const ipElement = document.createElement('p');
+                ipElement.textContent = ip;
+                blockedIPsContainer.appendChild(ipElement);
+            });
+        }
+
+        // Initial update of the blocked IPs section
+        displayBlockedIPs();
+
+        function fetchIncidents() {
+        // Make an AJAX request to fetch the incidents
+        fetch('static/get_incidents.php')
+            .then(response => response.json())
+            .then(incidents => {
+                // Get the incidents-table container
+                const incidentsTableContainer = document.getElementById('incidents-table');
+                
+                // Create the table
+                let tableHtml = '<table class="table table-striped"><thead><tr><th>ID</th><th>Incident Type</th><th>Description</th><th>Timestamp</th></tr></thead><tbody>';
+                
+                // Loop through each incident and add it to the table
+                incidents.forEach(incident => {
+                    tableHtml += `<tr>
+                                    <td>${incident.id}</td>
+                                    <td>${incident.incident_type}</td>
+                                    <td>${incident.description}</td>
+                                    <td>${incident.timestamp}</td>
+                                  </tr>`;
+                });
+
+                tableHtml += '</tbody></table>';
+
+                // Inject the table into the div
+                incidentsTableContainer.innerHTML = tableHtml;
+            })
+            .catch(error => console.error('Error fetching incidents:', error));
+    }
+
+    // Call the function to fetch incidents when the page loads
+    window.onload = fetchIncidents;
+    </script>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

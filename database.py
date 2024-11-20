@@ -14,7 +14,6 @@ def create_database():
     conn = connect_db()
     cursor = conn.cursor()
     
-   
     conn.commit()
     conn.close()
 

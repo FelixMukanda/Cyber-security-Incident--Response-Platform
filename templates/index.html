@@ -3,351 +3,210 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin Dashboard - Cybersecurity DDoS Platform</title>
-    <link rel="stylesheet" href="/static/styles.css">
-    <script src="https://cdn.socket.io/4.5.0/socket.io.min.js"></script>
+    <title>Cybersecurity Dashboard</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/socket.io-client@4.0.0/dist/socket.io.min.js"></script>
+    <!-- Font Awesome for Icons -->
+    <script src="https://kit.fontawesome.com/a076d05399.js" crossorigin="anonymous"></script>
+    <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
+        :root {
+            --primary-bg: #002b5b;
+            --secondary-bg: #f4f4f4;
+            --accent-color: #4caf50;
+            --alert-color: #ff6b6b;
+            --text-color: #333;
+        }
+
         body {
-            font-family: Arial, sans-serif;
-            margin: 0;
-            padding: 0;
-            background-color: #f4f4f4;
+            font-family: 'Roboto', sans-serif;
+            background-color: var(--secondary-bg);
+            color: var(--text-color);
         }
 
-        header {
-            background-color: #333;
-            color: #fff;
-            padding: 1rem;
-            text-align: center;
+        .navbar {
+            background-color: var(--primary-bg);
         }
 
-        .container {
-            display: flex;
-            flex-direction: row;
-            height: 100vh;
-        }
-        #logs-container {
-            width: 70%;
-            margin: 20px;
-            background-color: white;
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-        }
-        .table-wrapper {
-            max-height: 250px; /* Adjust to show only 10 rows */
-            overflow-y: auto;
-            border: 1px solid #ddd;
-            border-radius: 8px;
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-        th, td {
-            padding: 10px;
-            border: 1px solid #ddd;
-            text-align: left;
-            min-width: 100px; /* Ensures alignment if data is wider */
-        }
-        th {
-            background-color: #4caf50;
-            color: white;
-        }
-        tr:nth-child(odd) {
-            background-color: #f3f3f3;
-        }
-        .table-wrapper::-webkit-scrollbar {
-            width: 8px;
-        }
-        .table-wrapper::-webkit-scrollbar-thumb {
-            background-color: #4caf50;
-            border-radius: 4px;
+        .navbar-brand, .nav-link {
+            color: white !important;
         }
 
-        nav {
-            background-color: #444;
-            color: #fff;
-            width: 250px;
-            padding: 2rem 1rem;
-            display: flex;
-            flex-direction: column;
+        .card {
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
         }
 
-        nav a {
-            color: #ddd;
-            text-decoration: none;
-            margin: 10px 0;
-            padding: 0.5rem;
-            display: block;
-            border-radius: 4px;
-            transition: background 0.3s;
+        .dark-mode {
+            background-color: #121212;
+            color: #ffffff;
         }
 
-        nav a:hover {
-            background-color: #555;
-        }
-
-        .dashboard-content {
-            flex: 1;
-            padding: 2rem;
-            background-color: #fff;
-            overflow-y: auto;
-        }
-
-        .dashboard-content h2 {
-            margin-bottom: 1rem;
-            color: #333;
-        }
-
-        .stat-box {
-            background-color: #e7e7e7;
-            padding: 1rem;
-            border-radius: 8px;
-            margin-bottom: 1rem;
-            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-        }
-
-        .stat-box strong {
-            display: block;
-            margin-bottom: 0.5rem;
-            color: #555;
+        .dark-mode .navbar, .dark-mode .card {
+            background-color: #1e1e1e;
+            color: #ffffff;
         }
     </style>
 </head>
 <body>
-
-<header>
-    <h1>Cybersecurity Incident Response Dashboard</h1>
-</header>
-
-<div class="container">
-    <nav>
-        <h3>Navigation</h3>
-        <a href="#overview">Overview</a>
-        <a href="#live-traffic">Live Traffic</a>
-        <a href="#attack-details">Attack Details</a>
-        <a href="#logs">Incident Logs</a>
-        <a href="#mitigation">Mitigation Status</a>
-        <a href="#settings">Settings</a>
+    <!-- Navigation Bar -->
+    <nav class="navbar navbar-expand-lg navbar-dark">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="#">Cybersecurity Dashboard</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav">
+                    <li class="nav-item"><a class="nav-link" href="#overview">Overview</a></li>
+                    <li class="nav-item"><a class="nav-link" href="#live-traffic">Live Traffic</a></li>
+                    <li class="nav-item"><a class="nav-link" href="#logs">Logs</a></li>
+                </ul>
+            </div>
+        </div>
     </nav>
 
-    <div class="dashboard-content">
-        <h2 id="overview">Overview</h2>
-        <div class="stat-box">
-            <strong>Total Attacks Detected:</strong>
-            <p>125</p>
-        </div>
-        <div class="stat-box">
-            <strong>Current Active Mitigations:</strong>
-            <p>3</p>
-        </div>
-        <div class="stat-box">
-            <strong>Last Detected Attack:</strong>
-            <p>2024-11-10 12:45 PM</p>
-        </div>
-
-        <h2 id="live-traffic">Live Traffic</h2>
-        <div class="stat-box">
-            <div id="alert-box" style="display: none; background-color: red; color: white; padding: 10px;">
-                Alert: Potential DDoS detected!
-            </div>
-        </div>
-
-        <h2 id="attack-details">Attack Details</h2>
-        <div class="stat-box">
-            <div id="logs-container">
-                <div class="table-wrapper">
-                    <table id="log-table">
-                        <thead>
-                            <tr>
-                                <th>Timestamp</th>
-                                <th>Details</th>
-                                <th>Status</th>
-                            </tr>
-                        </thead>
-                        <tbody id="log-entries"></tbody>
-                    </table>
+    <!-- Main Container -->
+    <div class="container-fluid mt-4">
+        <div class="row">
+            <!-- Dashboard Content -->
+            <main class="col-md-12">
+                <h2 id="overview" class="mt-4">Overview</h2>
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="card text-white bg-primary">
+                            <div class="card-body">
+                                <h5 class="card-title">Total Attacks Detected</h5>
+                                <p class="card-text">125</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card text-white bg-success">
+                            <div class="card-body">
+                                <h5 class="card-title">Active Mitigations</h5>
+                                <p class="card-text">3</p>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-                <button id="refresh-button" onclick="fetch_logs()">Refresh Logs</button>
-            </div>
-        </div>
 
-        <h2 id="logs">Incident Logs</h2>
-        <div class="stat-box">
-            <strong>View Full Incident Log:</strong>
-            <a href="/incident-logs" target="_blank">Open Logs</a>
-        </div>
+                <h2 id="live-traffic" class="mt-4">Live Traffic</h2>
+                <div class="card">
+                    <div class="card-body">
+                        <canvas id="realTimeTrafficChart" width="800" height="300"></canvas>
+                    </div>
+                </div>
 
-        <h2 id="mitigation">Mitigation Status</h2>
-        <div class="stat-box">
-            <!-- Display predictions -->
-<h2>Predictions Overview</h2>
-<ul>
-    {% for prediction in predictions %}
-        <li>ID: {{ prediction[0] }}, Actual: {{ prediction[1] }}, Predicted: {{ prediction[2] }}</li>
-    {% endfor %}
-</ul>
-
-<!-- Display incidents -->
-<h2>Incidents</h2>
-<table>
-    <thead>
-        <tr>
-            <th>Incident ID</th>
-            <th>Type</th>
-            <th>Status</th>
-            <th>Timestamp</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for incident in incidents %}
-            <tr>
-                <td>{{ incident[0] }}</td>
-                <td>{{ incident[1] }}</td>
-                <td>{{ incident[2] }}</td>
-                <td>{{ incident[3] }}</td>
-            </tr>
-        {% endfor %}
-    </tbody>
-</table>
-
-<!-- Real-time alert box -->
-<div id="alert-box" style="display: none; background-color: red; color: white; padding: 10px;">
-    Alert: Potential DDoS detected!
-</div>
-
+                <h2 id="logs" class="mt-4">Logs</h2>
+                <div class="card">
+                    <div class="card-body">
+                        <input type="text" id="logSearch" class="form-control mb-3" placeholder="Search logs...">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Incident ID</th>
+                                    <th>Type</th>
+                                    <th>Status</th>
+                                    <th>Timestamp</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for incident in incidents %}
+                                    <tr>
+                                        <td>{{ incident[0] }}</td>
+                                        <td>{{ incident[1] }}</td>
+                                        <td>{{ incident[2] }}</td>
+                                        <td>{{ incident[3] }}</td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </main>
         </div>
     </div>
-</div>
-<script>
-    async function fetchLogs() {
-        const logEntries = document.getElementById('log-entries');
-        logEntries.innerHTML = '<tr><td colspan="3">Loading...</td></tr>';
-        try {
-            const response = await fetch('/fetch_logs'); // Update path as needed
-            const logs = await response.json();
- 
-            logEntries.innerHTML = '';  // Clear existing logs
- 
-            logs.forEach(log => {
-                const row = document.createElement('tr');
- 
-                const timestampCell = document.createElement('td');
-                timestampCell.textContent = log.timestamp;
-                row.appendChild(timestampCell);
- 
-                const statusCell = document.createElement('td');
-                statusCell.textContent = log.status;
-                row.appendChild(statusCell);
- 
-                const detailsCell = document.createElement('td');
-                detailsCell.textContent = log.details;
-                row.appendChild(detailsCell);
- 
-                logEntries.appendChild(row);
-            });
-        } catch (error) {
-            console.error("Error fetching logs:", error);
-            logEntries.innerHTML = '<tr><td colspan="3">Error loading logs. Please try again later.</td></tr>';
+
+    <button class="btn btn-secondary position-fixed bottom-0 end-0 m-4" onclick="toggleDarkMode()">Toggle Dark Mode</button>
+    <button class="btn btn-primary position-fixed bottom-0 start-0 m-4" onclick="startSimulation()">Start Simulation</button>
+
+    <!-- JavaScript -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/static/socket.io.min.js"></script>
+    
+    <script>
+        // Toggle Dark Mode
+        function toggleDarkMode() {
+            document.body.classList.toggle('dark-mode');
         }
-    }
- 
-    // Initial fetch when page loads
-    fetchLogs();
- 
-    // Real-time data handling using Socket.IO
-    const socket = io.connect('http://localhost:5000');
- 
-    socket.on('new_data', (data) => {
-        console.log('New data received:', data);
-        if (data.is_alert) {
-            document.getElementById('alert-box').style.display = 'block';
-            document.getElementById('alert-box').innerText = data.message;
-        }
- 
-        // Optionally update logs or other elements dynamically
-        const logEntries = document.getElementById('log-entries');
-        const row = document.createElement('tr');
- 
-        const timestampCell = document.createElement('td');
-        timestampCell.textContent = data.timestamp; // Adjust based on data structure
-        row.appendChild(timestampCell);
- 
-        const statusCell = document.createElement('td');
-        statusCell.textContent = data.status; // Adjust based on data structure
-        row.appendChild(statusCell);
- 
-        const detailsCell = document.createElement('td');
-        detailsCell.textContent = data.details; // Adjust based on data structure
-        row.appendChild(detailsCell);
- 
-        logEntries.insertAdjacentElement('afterbegin', row); // Add new log at the top
-    });
- </script>
- 
- <canvas id="predictionChart" width="800" height="400"></canvas>
 
-<script>
-    // Data passed from Flask
-    const predictionData = JSON.parse('{{ prediction_data | tojson }}');
-
-    // Extract IDs, Actual, and Predicted values from the data
-    const ids = predictionData.map(item => item[0]);
-    const actualValues = predictionData.map(item => item[1]);
-    const predictedValues = predictionData.map(item => item[2]);
-
-    // Create the chart using Chart.js
-    const ctx = document.getElementById('predictionChart').getContext('2d');
-    const chart = new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels: ids,
-            datasets: [
-                {
-                    label: 'Actual',
-                    data: actualValues,
+        // Chart for Real-Time Traffic
+        const ctx = document.getElementById('realTimeTrafficChart').getContext('2d');
+        const realTimeTrafficChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: [], // Timestamps
+                datasets: [{
+                    label: 'Traffic Rate',
+                    data: [], // Traffic rates
                     borderColor: 'rgba(75, 192, 192, 1)',
                     backgroundColor: 'rgba(75, 192, 192, 0.2)',
-                    borderWidth: 2,
-                    fill: false,
-                },
-                {
-                    label: 'Predicted',
-                    data: predictedValues,
-                    borderColor: 'rgba(255, 99, 132, 1)',
-                    backgroundColor: 'rgba(255, 99, 132, 0.2)',
-                    borderWidth: 2,
-                    fill: false,
-                }
-            ]
-        },
-        options: {
-            scales: {
-                x: {
-                    title: {
-                        display: true,
-                        text: 'ID'
-                    }
-                },
-                y: {
-                    title: {
-                        display: true,
-                        text: 'Value'
-                    },
-                    min: 0,
-                    max: 1
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    x: { title: { display: true, text: 'Time' } },
+                    y: { title: { display: true, text: 'Requests/Second' }, min: 0 }
                 }
             }
+        });
+
+        // Listen for traffic updates from the server
+        const socket = io();
+
+        socket.on('traffic_update', (data) => {
+            const { timestamp, traffic_rate } = data;
+            console.log(`Traffic Update: ${timestamp} - ${traffic_rate} requests`);
+
+            realTimeTrafficChart.data.labels.push(timestamp);
+            realTimeTrafficChart.data.datasets[0].data.push(traffic_rate);
+
+            // Keep only the last 10 points
+            if (realTimeTrafficChart.data.labels.length > 10) {
+                realTimeTrafficChart.data.labels.shift();
+                realTimeTrafficChart.data.datasets[0].data.shift();
+            }
+
+            realTimeTrafficChart.update();
+        });
+
+        // Log Search Filter
+        document.getElementById('logSearch').addEventListener('input', function () {
+            const query = this.value.toLowerCase();
+            document.querySelectorAll('#log-table tr').forEach(row => {
+                row.style.display = row.textContent.toLowerCase().includes(query) ? '' : 'none';
+            });
+        });
+
+        // Start Simulation Function
+        function startSimulation() {
+            const serverIp = "192.168.1.10";
+            const normalTrafficRate = 100;
+            const ddosTrafficRate = 1000;
+            const isDdos = true;
+
+            socket.emit('start_simulation', {
+                server_ip: serverIp,
+                normal_traffic_rate: normalTrafficRate,
+                ddos_traffic_rate: ddosTrafficRate,
+                is_ddos: isDdos
+            });
         }
-    });
-</script>
-
-
-<script>
-    console.log("Prediction Data:", predictionData);
-</script>
-
+    </script>
 </body>
 </html>
