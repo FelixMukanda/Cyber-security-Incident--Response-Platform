@@ -120,6 +120,11 @@
                 <h2>Live Traffic Chart</h2>
                 <canvas id="liveTrafficChart" width="800" height="400"></canvas>
             </div>
+            <div class="button-container">
+                <button id="startNormalTraffic">Start Normal Traffic</button>
+                <button id="startDdosTraffic">Start DDoS Traffic</button>
+                <button id="stopTraffic">Stop Traffic</button>
+            </div>
         </div>
 
         <!-- Logs Section -->
@@ -240,18 +245,31 @@
         });
 
         // Function to display blocked IPs
-        function displayBlockedIPs() {
-            const blockedIPsContainer = document.getElementById('blocked-ips');
-            blockedIPsContainer.innerHTML = ''; // Clear the list before re-adding
-            activeMitigations.forEach((ip) => {
-                const ipElement = document.createElement('p');
-                ipElement.textContent = ip;
-                blockedIPsContainer.appendChild(ipElement);
-            });
-        }
+        document.getElementById('startNormalTraffic').addEventListener('click', () => {
+        socket.emit('simulate_traffic', { type: 'normal' });
+        });
 
-        // Initial update of the blocked IPs section
-        displayBlockedIPs();
+        document.getElementById('startDdosTraffic').addEventListener('click', () => {
+        socket.emit('simulate_traffic', { type: 'ddos' });
+        });
+
+        document.getElementById('stopTraffic').addEventListener('click', () => {
+        socket.emit('stop_traffic');
+
+        });
+        // Listen for updates to the blocked IPs list
+socket.on('blocked_ips_update', (blockedIps) => {
+    // Update the blocked IPs section
+    const blockedIPsContainer = document.getElementById('blocked-ips');
+    blockedIPsContainer.innerHTML = ''; // Clear the list before re-adding
+    
+    blockedIps.forEach((ip) => {
+        const ipElement = document.createElement('p');
+        ipElement.textContent = ip;
+        blockedIPsContainer.appendChild(ipElement);
+    });
+});
+
 
         function fetchIncidents() {
         // Make an AJAX request to fetch the incidents
